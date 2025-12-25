@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Review from "../models/review.model.js";
 import Product from "../models/product.model.js";
 import Order from "../models/order.model.js"; //
+import cloudinary from "../config/cloudinary.js";
 
 // ⭐ ADD / UPDATE REVIEW
 export const addReview = async (req, res) => {
@@ -96,11 +97,19 @@ export const toggleLikeReview = async (req, res) => {
   const review = await Review.findById(req.params.reviewId);
   const userId = req.user._id;
 
-  if (review.likedBy.includes(userId)) {
-    review.likes--;
+  if (!review) {
+    return res.status(404).json({ message: "Review not found" });
+  }
+
+  const alreadyLiked = review.likedBy.some(
+    (id) => id.toString() === userId.toString()
+  );
+
+  if (alreadyLiked) {
+    review.likes -= 1;
     review.likedBy.pull(userId);
   } else {
-    review.likes++;
+    review.likes += 1;
     review.likedBy.push(userId);
   }
 
@@ -108,8 +117,17 @@ export const toggleLikeReview = async (req, res) => {
   res.json(review);
 };
 
+
 export const uploadReviewImages = async (req, res) => {
   const review = await Review.findById(req.params.reviewId);
+
+  if (!review) {
+    return res.status(404).json({ message: "Review not found" });
+  }
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ message: "No images uploaded" });
+  }
 
   const uploads = await Promise.all(
     req.files.map((file) =>
@@ -126,4 +144,21 @@ export const uploadReviewImages = async (req, res) => {
 
   await review.save();
   res.json(review);
+};
+
+
+
+export const getReviews = async (req, res) => {
+  const { sort = "latest" } = req.query;
+
+  let sortOption = { createdAt: -1 };
+
+  if (sort === "helpful") sortOption = { likes: -1 };
+  if (sort === "top") sortOption = { rating: -1, likes: -1 };
+
+  const reviews = await Review.find({ product: req.params.productId })
+    .sort(sortOption)
+    .populate("user", "name");
+
+  res.json(reviews);
 };

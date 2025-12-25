@@ -1,40 +1,36 @@
 "use client";
 
-import Link from "next/link";
 import { useRecentStore } from "@/store/recent.store";
+import ProductCard from "@/components/product/ProductCard";
+import { Product } from "@/types";
+import { motion } from "framer-motion";
 
 export default function RecentlyViewed() {
-  const items = useRecentStore((s) => s.items);
+  const items = useRecentStore((s) => s.items) as Product[];
 
-  if (items.length === 0) return null;
+  if (!items.length) return null;
 
   return (
-    <div className="mt-16">
-      <h2 className="text-2xl font-bold mb-6 text-white">
+    <section className="mt-16">
+      {/* ===== Heading ===== */}
+      <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-white">
         Recently Viewed
       </h2>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {items.map((p) => (
-          <Link
-            key={p._id}
-            href={`/products/${p._id}`}
-            className="bg-black/40 border border-white/10
-            rounded-2xl p-3 hover:scale-[1.02] transition"
+      {/* ===== Grid ===== */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+        {items.map((product, index) => (
+          <motion.div
+            key={product._id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
           >
-            <img
-              src={p.images?.[0]?.url}
-              className="h-40 w-full rounded-xl object-cover"
-            />
-            <p className="mt-2 text-sm font-semibold text-white line-clamp-1">
-              {p.title}
-            </p>
-            <p className="text-emerald-400 font-bold">
-              ₹{p.price}
-            </p>
-          </Link>
+            {/* 🔥 SAME PRODUCT CARD */}
+            <ProductCard product={product} />
+          </motion.div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

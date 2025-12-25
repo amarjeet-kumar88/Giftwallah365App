@@ -16,6 +16,7 @@ import ReviewForm from "@/components/reviews/ReviewForm";
 import ReviewList from "@/components/reviews/ReviewList";
 import RatingStars from "@/components/reviews/RatingStars";
 import RatingDistribution from "@/components/reviews/RatingDistribution";
+import ReviewsSection from "@/components/reviews/ReviewsSection";
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
@@ -271,7 +272,8 @@ export default function ProductDetailsPage() {
 
         <ReviewList reviews={reviews} />
       </div>
-
+      {/* ================= REVIEWS ================= */}
+      <ReviewsSection productId={product._id} />
       <CustomersAlsoBought productId={product._id} />
       <RelatedProducts productId={product._id} />
 

@@ -1,12 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useCartStore } from "@/store/cart.store";
+import { Heart, Star } from "lucide-react";
 import Link from "next/link";
 import { Product } from "@/types";
+import { useCartStore } from "@/store/cart.store";
+import { useWishlistStore } from "@/store/wishlist.store";
 
 export default function ProductCard({ product }: { product: Product }) {
   const addToCart = useCartStore((s) => s.addToCart);
+  const { toggle, isWishlisted } = useWishlistStore();
+
+  const wishlisted = isWishlisted(product._id);
 
   return (
     <motion.div
@@ -18,8 +23,8 @@ export default function ProductCard({ product }: { product: Product }) {
       shadow-xl hover:shadow-2xl
       transition-all"
     >
-      <Link href={`/products/${product._id}`} className="block cursor-pointer">
-        {/* IMAGE */}
+      <Link href={`/products/${product._id}`} className="block">
+        {/* ================= IMAGE ================= */}
         <div className="relative overflow-hidden">
           <img
             src={product.images?.[0]?.url || "/placeholder.png"}
@@ -40,9 +45,44 @@ export default function ProductCard({ product }: { product: Product }) {
               {product.discountPercent}% OFF
             </span>
           )}
+
+          {/* ================= RATING (BOTTOM LEFT) ================= */}
+          <div
+            className="absolute bottom-2 left-2
+            flex items-center gap-1
+            bg-black/60 backdrop-blur-md
+            px-2 py-1 rounded-lg"
+          >
+            <Star size={14} className="text-yellow-400 fill-yellow-400" />
+            <span className="text-xs font-semibold text-white">
+              {product.rating || 0}
+            </span>
+          </div>
+
+          {/* ================= WISHLIST (BOTTOM RIGHT) ================= */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              toggle(product._id);
+            }}
+            className="absolute bottom-2 right-2
+            h-9 w-9 flex items-center justify-center
+            rounded-full bg-black/60 backdrop-blur-md
+            cursor-pointer transition
+            hover:scale-110"
+          >
+            <Heart
+              size={18}
+              className={`transition ${
+                wishlisted
+                  ? "fill-red-500 text-red-500"
+                  : "text-white"
+              }`}
+            />
+          </button>
         </div>
 
-        {/* CONTENT */}
+        {/* ================= CONTENT ================= */}
         <div className="p-4">
           <h3 className="text-sm sm:text-base font-semibold text-white line-clamp-2">
             {product.title}
@@ -69,7 +109,7 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       </Link>
 
-      {/* ACTION */}
+      {/* ================= ACTION ================= */}
       <div className="px-4 pb-4">
         <button
           onClick={(e) => {
