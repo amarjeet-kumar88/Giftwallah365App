@@ -1,0 +1,50 @@
+@import "tailwindcss";
+@tailwind utilities;
+:root {
+  --radius: 16px;
+}
+
+html,
+body {
+  font-family: var(--font-inter);
+  background: #faf8f5;
+}
+
+/* Headings */
+h1, h2, h3 {
+  font-family: var(--font-playfair);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Glass effect utility */
+.glass {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Premium scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4b2c5e, #f2b705);
+  border-radius: 10px;
+}
+
+@keyframes shine {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.animate-shine {
+  animation: shine 3s linear infinite;
+}
