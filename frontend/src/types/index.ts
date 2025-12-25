@@ -18,4 +18,6 @@ export interface Product {
     name: string;
     type: "FESTIVAL" | "OCCASION" | "CORPORATE";
   };
+  rating: number;   
+  numReviews: number; 
 }

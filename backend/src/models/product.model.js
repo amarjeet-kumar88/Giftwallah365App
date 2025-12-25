@@ -34,6 +34,15 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    rating: {
+      type: Number,
+      default: 0,
+    },
+    numReviews: {
+      type: Number,
+      default: 0,
+    },
+
     images: [
       {
         url: String,

@@ -117,7 +117,7 @@ export default function MobileMenuDrawer({
                     px-5 py-2 rounded-xl
                     bg-linear-to-r from-indigo-500 to-purple-600
                     text-white font-semibold
-                    shadow-lg
+                    shadow-lg cursor-pointer
                   "
                 >
                   Login / Signup
@@ -179,7 +179,7 @@ export default function MobileMenuDrawer({
                   className="
                     flex items-center gap-3
                     text-rose-400 font-medium
-                    hover:text-rose-300 transition
+                    hover:text-rose-300 transition cursor-pointer
                   "
                 >
                   <LogOut size={18} />
