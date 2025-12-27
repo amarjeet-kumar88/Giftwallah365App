@@ -50,3 +50,8 @@ export const removeFromCart = async (req, res) => {
   await cart.save();
   res.json(cart);
 };
+
+export const clearCart = async (req, res) => {
+  await Cart.findOneAndDelete({ user: req.user._id });
+  res.json({ success: true });
+};
