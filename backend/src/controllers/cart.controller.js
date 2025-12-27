@@ -55,3 +55,39 @@ export const clearCart = async (req, res) => {
   await Cart.findOneAndDelete({ user: req.user._id });
   res.json({ success: true });
 };
+
+export const updateCartQuantity = async (req, res) => {
+  const { productId, quantity } = req.body;
+  const userId = req.user._id;
+
+  if (!productId || !quantity) {
+    return res.status(400).json({ message: "Invalid payload" });
+  }
+
+  const cart = await Cart.findOne({ user: userId });
+
+  if (!cart) {
+    return res.status(404).json({ message: "Cart not found" });
+  }
+
+  const item = cart.items.find(
+    (i) => i.product.toString() === productId
+  );
+
+  if (!item) {
+    return res.status(404).json({ message: "Item not found in cart" });
+  }
+
+  item.quantity += quantity;
+
+  // ❌ Quantity <= 0 → remove item
+  if (item.quantity <= 0) {
+    cart.items = cart.items.filter(
+      (i) => i.product.toString() !== productId
+    );
+  }
+
+  await cart.save();
+
+  res.json(cart);
+};

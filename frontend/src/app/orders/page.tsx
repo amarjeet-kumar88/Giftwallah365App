@@ -5,11 +5,15 @@ import api from "@/lib/axios";
 import { Download } from "lucide-react";
 import OrderTimeline from "@/components/orders/OrderTimeline";
 import AddressModal from "@/components/address/AddressModal";
+import toast from "react-hot-toast";
+import router from "next/router";
+import CancelOrderModal from "@/components/orders/CancelOrderModal";
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeOrder, setActiveOrder] = useState<any>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -21,6 +25,35 @@ export default function MyOrdersPage() {
   /* 🔥 OPEN ADDRESS MODAL */
   const openAddressModal = (order: any) => {
     setActiveOrder(order);
+  };
+
+  const retryPayment = async (order: any) => {
+    try {
+      const { data } = await api.post(`/orders/${order._id}/retry`);
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+        amount: data.razorpayOrder.amount,
+        currency: "INR",
+        order_id: data.razorpayOrder.id,
+
+        handler: async (response: any) => {
+          await api.post("/orders/verify", response);
+          router.push("/order-success");
+        },
+
+        modal: {
+          ondismiss: () => {
+            toast.error("Payment cancelled. You can retry.");
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      toast.error("Unable to retry payment");
+    }
   };
 
   /* 📄 DOWNLOAD INVOICE */
@@ -45,11 +78,10 @@ export default function MyOrdersPage() {
     if (!reason) return;
 
     const res = await api.put(`/orders/${orderId}/cancel`, { reason });
+    toast.success("Order cancelled successfully");
 
     setOrders((prev) =>
-      prev.map((o) =>
-        o._id.toString() === orderId ? res.data : o
-      )
+      prev.map((o) => (o._id.toString() === orderId ? res.data : o))
     );
   };
 
@@ -102,11 +134,24 @@ export default function MyOrdersPage() {
                   </p>
                 </div>
 
+                <CancelOrderModal
+                  orderId={cancelOrderId}
+                  onClose={() => setCancelOrderId(null)}
+                  onSuccess={(updatedOrder) => {
+                    setOrders((prev) =>
+                      prev.map((o) =>
+                        o._id === updatedOrder._id ? updatedOrder : o
+                      )
+                    );
+                  }}
+                />
+
                 <button
                   onClick={() => downloadInvoice(order._id)}
+                  disabled={order.status === "CANCELLED"}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl
                   bg-linear-to-r from-indigo-500 to-purple-600
-                  text-white font-semibold shadow-lg"
+                  text-white font-semibold shadow-lg cursor-pointer"
                 >
                   <Download size={18} />
                   Invoice
@@ -115,6 +160,16 @@ export default function MyOrdersPage() {
 
               {/* TIMELINE */}
               <OrderTimeline status={order.status} />
+              {order.status === "FAILED" && (
+                <button
+                  onClick={() => retryPayment(order)}
+                  className="mt-6 w-full py-3 rounded-xl
+    bg-amber-500 text-black font-semibold
+    hover:bg-amber-400 transition"
+                >
+                  Retry Payment
+                </button>
+              )}
 
               {/* ITEMS */}
               <div className="mt-6 space-y-4">
@@ -129,9 +184,7 @@ export default function MyOrdersPage() {
                     />
 
                     <div className="flex-1">
-                      <p className="font-semibold">
-                        {item.product.title}
-                      </p>
+                      <p className="font-semibold">{item.product.title}</p>
                       <p className="text-sm text-slate-400">
                         Qty: {item.quantity}
                       </p>
@@ -147,18 +200,18 @@ export default function MyOrdersPage() {
               {/* TOTAL */}
               <div className="mt-6 flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span className="text-emerald-400">
-                  ₹{order.totalAmount}
-                </span>
+                <span className="text-emerald-400">₹{order.totalAmount}</span>
               </div>
 
               {/* ACTIONS */}
               {["PENDING", "PAID", "PROCESSING"].includes(order.status) && (
                 <div className="mt-6 flex flex-wrap gap-4">
                   <button
-                    onClick={() => cancelOrder(order._id)}
-                    className="px-5 py-2 rounded-xl border border-rose-500/40
-                    text-rose-400 font-semibold hover:bg-rose-500/10 transition"
+                    onClick={() => setCancelOrderId(order._id)}
+                    className="px-5 py-2 rounded-xl
+  border border-rose-500/40
+  text-rose-400 font-semibold
+  hover:bg-rose-500/10 transition"
                   >
                     Cancel Order
                   </button>

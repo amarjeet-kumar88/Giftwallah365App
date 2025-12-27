@@ -135,6 +135,12 @@ export const downloadInvoice = async (req, res) => {
     return res.status(404).json({ message: "Order not found" });
   }
 
+  if (["CANCELLED", "FAILED"].includes(order.status)) {
+    return res.status(400).json({
+      message: "Invoice not available for cancelled orders",
+    });
+  }
+
   const pdfBuffer = await generateInvoicePdf(order);
 
   res.setHeader("Content-Type", "application/pdf");
@@ -147,25 +153,39 @@ export const downloadInvoice = async (req, res) => {
 };
 
 export const cancelOrder = async (req, res) => {
-  const { reason } = req.body;
-
-  const order = await Order.findById(req.params.id).populate("user");
+  const order = await Order.findById(req.params.id);
 
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  if (!["PENDING", "PAID", "PROCESSING"].includes(order.status)) {
-    return res
-      .status(400)
-      .json({ message: "Order cannot be cancelled now" });
+  // 🔐 Ensure same user
+  if (order.user.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ message: "Not authorized" });
   }
 
+  // ❌ Already cancelled
+  if (order.status === "CANCELLED") {
+    return res.status(400).json({ message: "Order already cancelled" });
+  }
+
+  // 🚫 Cancellation rules (Flipkart style)
+  const cancellableStatuses = ["PENDING", "PAID", "PROCESSING"];
+
+  if (!cancellableStatuses.includes(order.status)) {
+    return res.status(400).json({
+      message: `Order cannot be cancelled after ${order.status}`,
+    });
+  }
+
+  // ✅ Cancel order
   order.status = "CANCELLED";
-  order.cancelReason = reason || "User cancelled";
+  order.cancelReason = req.body.reason;
+  order.cancelComment = req.body.comment || "";
+  order.cancelledAt = new Date();
+
   await order.save();
 
-  // WhatsApp notify
   if (order.user?.phone) {
     await sendWhatsApp(
       order.user.phone,
@@ -176,6 +196,35 @@ Your order #${order._id.toString().slice(-6)} has been cancelled.`
 
   res.json(order);
 };
+//   const { reason } = req.body;
+
+//   const order = await Order.findById(req.params.id).populate("user");
+
+//   if (!order) {
+//     return res.status(404).json({ message: "Order not found" });
+//   }
+
+//   if (!["PENDING", "PAID", "PROCESSING"].includes(order.status)) {
+//     return res
+//       .status(400)
+//       .json({ message: "Order cannot be cancelled now" });
+//   }
+
+//   order.status = "CANCELLED";
+//   order.cancelReason = reason || "User cancelled";
+//   await order.save();
+
+//   // WhatsApp notify
+//   if (order.user?.phone) {
+//     await sendWhatsApp(
+//       order.user.phone,
+//       `❌ GiftWallah Order Cancelled
+// Your order #${order._id.toString().slice(-6)} has been cancelled.`
+//     );
+//   }
+
+//   res.json(order);
+// };
 
 export const updateOrderAddress = async (req, res) => {
   const { addressId } = req.body;
@@ -197,4 +246,23 @@ export const updateOrderAddress = async (req, res) => {
   await order.save();
 
   res.json(order);
+};
+
+export const retryOrderPayment = async (req, res) => {
+  const order = await Order.findById(req.params.id);
+
+  if (!order || order.status !== "FAILED") {
+    return res.status(400).json({ message: "Invalid order" });
+  }
+
+  const razorpayOrder = await razorpay.orders.create({
+    amount: order.totalAmount * 100,
+    currency: "INR",
+    receipt: `retry_${order._id}`,
+  });
+
+  order.razorpayOrderId = razorpayOrder.id;
+  await order.save();
+
+  res.json({ razorpayOrder });
 };

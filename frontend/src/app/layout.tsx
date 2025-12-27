@@ -4,6 +4,7 @@ import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
 import AuthBootstrap from "@/components/auth/AuthBootstrap";
 import ClientProviders from "@/components/ClientProviders";
+import { Toaster } from "react-hot-toast";
 
 import { Inter, Playfair_Display } from "next/font/google";
 
@@ -28,6 +29,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className="bg-brand-bg text-gray-800 antialiased"
       >
+        <Toaster position="top-center" />
         {/* 🔥 CLIENT SIDE STATE BOOTSTRAP */}
         <ClientProviders>
           <AuthBootstrap />

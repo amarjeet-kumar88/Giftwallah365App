@@ -8,84 +8,159 @@ export const generateInvoicePdf = (order) => {
     doc.on("data", buffers.push.bind(buffers));
     doc.on("end", () => resolve(Buffer.concat(buffers)));
 
-    /* ===== HEADER BAR ===== */
+    /* ================= HEADER ================= */
     doc
-      .rect(0, 0, doc.page.width, 80)
-      .fill("#4B2C5E");
+      .rect(0, 0, doc.page.width, 90)
+      .fill("#1F2937"); // dark premium slate
+
+    // Company name
+    doc
+      .fillColor("#FBBF24") // gold
+      .fontSize(26)
+      .font("Helvetica-Bold")
+      .text("GiftWallah365", 40, 28);
 
     doc
       .fillColor("white")
-      .fontSize(22)
-      .text("GiftWallah Invoice", 40, 30);
+      .fontSize(12)
+      .font("Helvetica")
+      .text("Premium Gifting Experience", 42, 60);
 
-    doc.moveDown(3);
-    doc.fillColor("black");
+    doc.moveDown(4);
+    doc.fillColor("#111827");
 
-    /* ===== ORDER INFO ===== */
-    doc.fontSize(11).text(`Order ID: ${order._id}`);
-    doc.text(`Order Date: ${new Date(order.createdAt).toDateString()}`);
-    doc.moveDown();
-
-    /* ===== ADDRESS CARD ===== */
+    /* ================= ORDER META ================= */
     doc
-      .roundedRect(40, doc.y, 520, 90, 10)
-      .fill("#F5F0FA");
+      .fontSize(11)
+      .text(`Invoice ID: ${order._id}`);
+    doc.text(
+      `Order Date: ${new Date(order.createdAt).toLocaleDateString()}`
+    );
+    doc.text(`Payment Status: PAID`);
+    doc.moveDown(1.5);
 
-    doc.fillColor("black").fontSize(13).text("Billing Address", 50, doc.y + 10);
+    /* ================= ADDRESS CARD ================= */
+    const addressTop = doc.y;
 
-    doc.fontSize(11).text(
-      `${order.address.fullName}
+    doc
+      .roundedRect(40, addressTop, 520, 100, 12)
+      .fill("#F9FAFB");
+
+    doc
+      .fillColor("#111827")
+      .fontSize(14)
+      .font("Helvetica-Bold")
+      .text("Billing Address", 55, addressTop + 12);
+
+    doc
+      .font("Helvetica")
+      .fontSize(11)
+      .fillColor("#374151")
+      .text(
+        `${order.address.fullName}
 ${order.address.addressLine}
 ${order.address.city}, ${order.address.state} - ${order.address.pincode}
 Phone: ${order.address.phone}`,
-      50,
-      doc.y + 30
-    );
+        55,
+        addressTop + 36
+      );
 
-    doc.moveDown(7);
+    doc.moveDown(6);
 
-    /* ===== ITEMS TABLE ===== */
-    doc.fontSize(14).text("Order Items", { underline: true });
+    /* ================= ITEMS HEADER ================= */
+    doc
+      .fontSize(15)
+      .font("Helvetica-Bold")
+      .fillColor("#111827")
+      .text("Order Items");
+
     doc.moveDown(0.5);
 
+    // Table header line
+    doc
+      .strokeColor("#E5E7EB")
+      .lineWidth(1)
+      .moveTo(40, doc.y)
+      .lineTo(560, doc.y)
+      .stroke();
+
+    doc.moveDown(0.8);
+
+    /* ================= ITEMS ================= */
     order.items.forEach((item) => {
+      const rowTop = doc.y;
+
       doc
-        .roundedRect(40, doc.y, 520, 40, 8)
+        .roundedRect(40, rowTop, 520, 46, 10)
         .fill("#FFFFFF")
         .stroke("#E5E7EB");
 
       doc
-        .fillColor("black")
+        .fillColor("#111827")
         .fontSize(11)
-        .text(item.product.title, 50, doc.y + 12);
+        .font("Helvetica-Bold")
+        .text(item.product.title, 55, rowTop + 15, {
+          width: 260,
+        });
 
-      doc.text(
-        `Qty: ${item.quantity}`,
-        360,
-        doc.y + 12
-      );
+      doc
+        .font("Helvetica")
+        .fillColor("#374151")
+        .text(`Qty: ${item.quantity}`, 350, rowTop + 15);
 
-      doc.text(
-        `₹${item.price * item.quantity}`,
-        470,
-        doc.y + 12
-      );
+      doc
+        .font("Helvetica-Bold")
+        .fillColor("#111827")
+        .text(
+          `₹${item.price * item.quantity}`,
+          460,
+          rowTop + 15
+        );
 
       doc.moveDown(3);
     });
 
-    /* ===== TOTAL ===== */
-    doc
-      .roundedRect(360, doc.y + 10, 200, 40, 10)
-      .fill("#4B2C5E");
+    /* ================= TOTAL SUMMARY ================= */
+    doc.moveDown(1);
+
+    const totalTop = doc.y;
 
     doc
-      .fillColor("white")
-      .fontSize(14)
+      .roundedRect(320, totalTop, 240, 60, 14)
+      .fill("#1F2937");
+
+    doc
+      .fillColor("#D1D5DB")
+      .fontSize(11)
+      .font("Helvetica")
+      .text("Total Amount", 340, totalTop + 14);
+
+    doc
+      .fillColor("#FBBF24")
+      .fontSize(18)
+      .font("Helvetica-Bold")
+      .text(`₹${order.totalAmount}`, 340, totalTop + 32);
+
+    /* ================= FOOTER ================= */
+    doc.moveDown(5);
+
+    doc
+      .strokeColor("#E5E7EB")
+      .lineWidth(1)
+      .moveTo(40, doc.y)
+      .lineTo(560, doc.y)
+      .stroke();
+
+    doc.moveDown(1);
+
+    doc
+      .fontSize(10)
+      .fillColor("#6B7280")
       .text(
-        `Total: ₹${order.totalAmount}`,
-        380,
-        doc.y + 22
+        "Thank you for shopping with GiftWallah365.\nFor support: support@giftwallah365.com",
+        {
+          align: "center",
+        }
       );
 
     doc.end();

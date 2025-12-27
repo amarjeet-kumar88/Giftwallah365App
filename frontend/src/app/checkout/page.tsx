@@ -4,56 +4,69 @@ import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { useCartStore } from "@/store/cart.store";
 import loadRazorpay from "@/lib/loadRazorpay";
+import toast from "react-hot-toast";
 
 export default function CheckoutPage() {
   const { items } = useCartStore();
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [form, setForm] = useState<any>({});
+  const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
-    if (!selected) {
-      alert("Please select address");
-      return;
+    try {
+      if (!selected) {
+        alert("Please select address");
+        return;
+      }
+
+      const loaded = await loadRazorpay();
+      if (!loaded) {
+        alert("Razorpay SDK failed to load");
+        return;
+      }
+
+      const orderRes = await api.post("/orders", {
+        addressId: selected,
+      });
+
+      const { razorpayOrder } = orderRes.data;
+
+      if (!razorpayOrder) {
+        alert("Payment initialization failed");
+        return;
+      }
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: razorpayOrder.amount,
+        currency: "INR",
+        order_id: razorpayOrder.id,
+        name: "GiftWallah365",
+        description: "Secure Gift Purchase",
+        handler: async (response: any) => {
+          await api.post("/orders/verify", {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+
+          window.location.href = "/order-success";
+        },
+        modal: {
+          ondismiss: () => {
+            toast.error("Payment cancelled. You can retry.");
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      toast.error("Payment failed. Try again.");
+    } finally {
+      setLoading(false);
     }
-
-    const loaded = await loadRazorpay();
-    if (!loaded) {
-      alert("Razorpay SDK failed to load");
-      return;
-    }
-
-    const orderRes = await api.post("/orders", {
-      addressId: selected,
-    });
-
-    const { razorpayOrder } = orderRes.data;
-
-    if (!razorpayOrder) {
-      alert("Payment initialization failed");
-      return;
-    }
-
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: razorpayOrder.amount,
-      currency: "INR",
-      order_id: razorpayOrder.id,
-      name: "GiftWallah",
-      description: "Secure Gift Purchase",
-      handler: async (response: any) => {
-        await api.post("/orders/verify", {
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_signature: response.razorpay_signature,
-        });
-
-        window.location.href = "/order-success";
-      },
-    };
-
-    const rzp = new (window as any).Razorpay(options);
-    rzp.open();
   };
 
   useEffect(() => {
@@ -66,10 +79,7 @@ export default function CheckoutPage() {
     setSelected(res.data._id);
   };
 
-  const total = items.reduce(
-    (sum, i) => sum + i.product.price * i.qty,
-    0
-  );
+  const total = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
 
   return (
     <div
@@ -80,9 +90,7 @@ export default function CheckoutPage() {
       <div className="max-w-7xl mx-auto grid gap-10 md:grid-cols-2">
         {/* LEFT – ADDRESS */}
         <div>
-          <h2 className="text-2xl font-extrabold mb-6">
-            Delivery Address
-          </h2>
+          <h2 className="text-2xl font-extrabold mb-6">Delivery Address</h2>
 
           {addresses.map((addr) => (
             <label
@@ -103,12 +111,9 @@ export default function CheckoutPage() {
                 className="mr-3 accent-indigo-500"
               />
               <div className="inline-block align-top">
-                <p className="font-semibold">
-                  {addr.fullName}
-                </p>
+                <p className="font-semibold">{addr.fullName}</p>
                 <p className="text-sm text-slate-400">
-                  {addr.addressLine}, {addr.city}, {addr.state} –{" "}
-                  {addr.pincode}
+                  {addr.addressLine}, {addr.city}, {addr.state} – {addr.pincode}
                 </p>
               </div>
             </label>
@@ -120,9 +125,7 @@ export default function CheckoutPage() {
             bg-black/40 backdrop-blur-xl
             border border-white/10 shadow-2xl"
           >
-            <h3 className="font-semibold text-lg mb-4">
-              Add New Address
-            </h3>
+            <h3 className="font-semibold text-lg mb-4">Add New Address</h3>
 
             {[
               "fullName",
@@ -139,9 +142,7 @@ export default function CheckoutPage() {
                   bg-black/30 border border-white/10
                   px-4 py-2 text-white placeholder-slate-500
                   focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                onChange={(e) =>
-                  setForm({ ...form, [f]: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, [f]: e.target.value })}
               />
             ))}
 
@@ -163,9 +164,7 @@ export default function CheckoutPage() {
           bg-black/40 backdrop-blur-xl
           border border-white/10 shadow-2xl"
         >
-          <h2 className="text-2xl font-extrabold mb-6">
-            Order Summary
-          </h2>
+          <h2 className="text-2xl font-extrabold mb-6">Order Summary</h2>
 
           {items.map((i) => (
             <div
@@ -185,22 +184,21 @@ export default function CheckoutPage() {
 
           <div className="flex justify-between text-lg font-bold">
             <span>Total</span>
-            <span className="text-emerald-400">
-              ₹{total}
-            </span>
+            <span className="text-emerald-400">₹{total}</span>
           </div>
 
           <button
-            disabled={!selected}
+            disabled={!addresses || loading}
             onClick={handlePayment}
-            className="mt-6 w-full py-3 rounded-2xl
-              cursor-pointer font-bold text-lg
-              bg-linear-to-r from-emerald-500 to-teal-600
-              text-white shadow-lg
-              hover:opacity-90 transition
-              disabled:opacity-40"
+            className={`w-full py-3 rounded-xl font-semibold transition cursor-pointer
+    ${
+      !addresses
+        ? "bg-gray-600 text-gray-300 cursor-not-allowed"
+        : "bg-linear-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90"
+    }
+  `}
           >
-            Pay Securely
+            {loading ? "Processing..." : "Pay Securely"}
           </button>
         </div>
       </div>
