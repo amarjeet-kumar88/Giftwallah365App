@@ -227,26 +227,34 @@ Your order #${order._id.toString().slice(-6)} has been cancelled.`
 // };
 
 export const updateOrderAddress = async (req, res) => {
+  const { id } = req.params;
   const { addressId } = req.body;
 
-  const order = await Order.findById(req.params.id);
+  // ✅ SAFETY CHECK
+  if (!id || id === "undefined") {
+    return res.status(400).json({
+      message: "Order ID is required",
+    });
+  }
 
+  if (!addressId) {
+    return res.status(400).json({
+      message: "Address ID is required",
+    });
+  }
+
+  const order = await Order.findById(id);
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  if (["SHIPPED", "DELIVERED", "CANCELLED"].includes(order.status)) {
-    return res
-      .status(400)
-      .json({ message: "Address cannot be updated now" });
-  }
-
   order.address = addressId;
-  order.addressUpdatedAt = new Date();
   await order.save();
 
-  res.json(order);
+  const populatedOrder = await order.populate("address");
+  res.json(populatedOrder);
 };
+
 
 export const retryOrderPayment = async (req, res) => {
   const order = await Order.findById(req.params.id);

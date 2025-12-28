@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 
 interface Props {
-  orderId: string;
+  orderId?: string;
   onClose: () => void;
   onUpdated: (order: any) => void;
 }
@@ -40,11 +40,18 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
   const updateOrderAddress = async () => {
     if (!selected) return alert("Select address");
 
+    // 🛑 IMPORTANT GUARD
+    if (!orderId) {
+      // Account page flow → no order update
+      onClose();
+      return;
+    }
+
     const res = await api.put(`/orders/${orderId}/address`, {
       addressId: selected,
     });
 
-    onUpdated(res.data);
+    onUpdated?.(res.data);
     onClose();
   };
 
@@ -113,9 +120,7 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
                     <p className="text-sm text-slate-400">
                       {a.addressLine}, {a.city}, {a.state} – {a.pincode}
                     </p>
-                    <p className="text-sm text-slate-300 mt-1">
-                      📞 {a.phone}
-                    </p>
+                    <p className="text-sm text-slate-300 mt-1">📞 {a.phone}</p>
                   </div>
                 </label>
               ))}
@@ -148,7 +153,7 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
                   bg-linear-to-r from-indigo-500 to-purple-600
                   text-white shadow-lg hover:opacity-90 transition"
                 >
-                  Use This Address
+                  {orderId ? "Use This Address" : "Save Address"}
                 </button>
               </div>
             </div>
@@ -168,9 +173,7 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
                   text-white placeholder-slate-500
                   focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   value={(form as any)[key]}
-                  onChange={(e) =>
-                    setForm({ ...form, [key]: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                 />
               ))}
             </div>
