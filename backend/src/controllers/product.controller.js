@@ -219,3 +219,21 @@ export const recommendedForUser = async (req, res) => {
 
   res.json(recommendations);
 };
+
+export const recommendedForYou = async (req, res) => {
+  let products;
+
+  if (req.user) {
+    // 🔥 Personalized (based on orders / views)
+    products = await Product.find()
+      .sort({ rating: -1 })
+      .limit(8);
+  } else {
+    // 🌍 Guest users → trending products
+    products = await Product.find()
+      .sort({ numReviews: -1 })
+      .limit(8);
+  }
+
+  res.json(products);
+};

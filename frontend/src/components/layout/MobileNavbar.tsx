@@ -70,10 +70,26 @@ export default function MobileNavbar({
             </button>
 
             {/* 🛒 CART */}
-            <button onClick={open} className="relative cursor-pointer">
-              <ShoppingCart />
+            <button
+              onClick={open}
+              className="relative cursor-pointer p-2 rounded-full
+  text-white hover:bg-white/10 transition"
+              aria-label="Cart"
+            >
+              <ShoppingCart size={22} />
+
               {cartCount > 0 && (
-                <span className="badge-sm">{cartCount}</span>
+                <span
+                  className="absolute -top-1 -right-1
+      h-5 min-w-5 px-1
+      flex items-center justify-center
+      rounded-full text-[11px] font-bold
+      text-black
+      bg-linear-to-br from-amber-400 to-orange-500
+      shadow-lg ring-2 ring-black"
+                >
+                  {cartCount}
+                </span>
               )}
             </button>
 
@@ -103,10 +119,7 @@ export default function MobileNavbar({
               border border-white/10
               rounded-2xl shadow-2xl p-3"
             >
-              <SearchBar
-                autoFocus
-                onSelect={() => setShowSearch(false)}
-              />
+              <SearchBar autoFocus onSelect={() => setShowSearch(false)} />
             </div>
           </motion.div>
         )}

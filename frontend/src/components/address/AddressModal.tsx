@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
+import MapPicker from "./MapPicker";
 
 interface Props {
   orderId?: string;
-  address?: any;                 // 👈 EDIT MODE DATA
+  address?: any; // 👈 EDIT MODE DATA
   onClose: () => void;
   onUpdated?: (data?: any) => void;
 }
@@ -29,11 +30,13 @@ export default function AddressModal({
     city: "",
     state: "",
     pincode: "",
+    location: null as null | { lat: number; lng: number },
   });
 
   /* ================= PREFILL FORM (EDIT) ================= */
   useEffect(() => {
     if (address) {
+      setShowForm(true); // open form automatically
       setForm({
         fullName: address.fullName || "",
         phone: address.phone || "",
@@ -41,6 +44,7 @@ export default function AddressModal({
         city: address.city || "",
         state: address.state || "",
         pincode: address.pincode || "",
+        location: address.location || null, // ✅ PREFILL MAP PIN
       });
     }
   }, [address]);
@@ -96,7 +100,6 @@ export default function AddressModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-3xl p-6 bg-black/70 backdrop-blur-xl border border-white/10 shadow-2xl text-white">
-
         {/* ================= HEADER ================= */}
         <h2 className="text-2xl font-extrabold mb-6">
           {isEdit
@@ -131,9 +134,7 @@ export default function AddressModal({
                     <p className="text-sm text-slate-400">
                       {a.addressLine}, {a.city}, {a.state} – {a.pincode}
                     </p>
-                    <p className="text-sm text-slate-300 mt-1">
-                      📞 {a.phone}
-                    </p>
+                    <p className="text-sm text-slate-300 mt-1">📞 {a.phone}</p>
                   </div>
                 </label>
               ))}
@@ -183,6 +184,23 @@ export default function AddressModal({
                   />
                 </div>
               ))}
+            </div>
+
+            {/* 📍 MAP PICKER */}
+            <div className="mt-5">
+              <label className="text-sm text-slate-400 mb-2 block">
+                Pin delivery location on map
+              </label>
+
+              <MapPicker
+                value={form.location}
+                onChange={(loc) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    location: loc,
+                  }))
+                }
+              />
             </div>
 
             <div className="flex justify-between mt-8">

@@ -9,11 +9,14 @@ import { Product } from "@/types";
 export default function RecommendedForYou() {
   const [products, setProducts] = useState<Product[]>([]);
 
-  useEffect(() => {
-    api.get("/products/recommended").then((res) => {
-      setProducts(res.data);
-    });
-  }, []);
+  const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  api
+    .get("/products/recommended")
+    .then((res) => setProducts(res.data))
+    .finally(() => setLoading(false));
+}, []);
 
   if (!products.length) return null;
 

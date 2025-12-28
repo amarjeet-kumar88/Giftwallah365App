@@ -14,6 +14,7 @@ import {
 } from "../controllers/product.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 import { isAdmin } from "../middlewares/admin.middleware.js";
+// import { optionalAuth } from "../middlewares/optionalAuth.js";
 
 const router = express.Router();
 
@@ -34,7 +35,11 @@ router.get("/suggestions", searchSuggestions);
 router.get("/popular-searches", popularSearches);
 router.get("/:id/related", getRelatedProducts);
 router.get("/:id/also-bought", customersAlsoBought);
-router.get("/recommended", protect, recommendedForUser);
+router.get(
+  "/recommended",
+  protect,
+  recommendedForUser
+);
 router.delete("/:id", protect, isAdmin, deleteProduct);
 router.get("/:id", getSingleProduct);
 
