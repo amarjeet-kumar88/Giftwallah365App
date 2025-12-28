@@ -5,14 +5,22 @@ import api from "@/lib/axios";
 
 interface Props {
   orderId?: string;
+  address?: any;                 // 👈 EDIT MODE DATA
   onClose: () => void;
-  onUpdated: (order: any) => void;
+  onUpdated?: (data?: any) => void;
 }
 
-export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
+export default function AddressModal({
+  orderId,
+  address,
+  onClose,
+  onUpdated,
+}: Props) {
+  const isEdit = Boolean(address); // 👈 MODE DETECT
+
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selected, setSelected] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(isEdit); // 👈 EDIT → FORM OPEN
 
   const [form, setForm] = useState({
     fullName: "",
@@ -23,7 +31,21 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
     pincode: "",
   });
 
-  /* FETCH ADDRESSES */
+  /* ================= PREFILL FORM (EDIT) ================= */
+  useEffect(() => {
+    if (address) {
+      setForm({
+        fullName: address.fullName || "",
+        phone: address.phone || "",
+        addressLine: address.addressLine || "",
+        city: address.city || "",
+        state: address.state || "",
+        pincode: address.pincode || "",
+      });
+    }
+  }, [address]);
+
+  /* ================= FETCH ADDRESSES ================= */
   const loadAddresses = async () => {
     const res = await api.get("/addresses");
     setAddresses(res.data);
@@ -33,16 +55,14 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
   };
 
   useEffect(() => {
-    loadAddresses();
-  }, []);
+    if (!isEdit) loadAddresses();
+  }, [isEdit]);
 
-  /* UPDATE ORDER ADDRESS */
+  /* ================= ORDER ADDRESS UPDATE ================= */
   const updateOrderAddress = async () => {
     if (!selected) return alert("Select address");
 
-    // 🛑 IMPORTANT GUARD
     if (!orderId) {
-      // Account page flow → no order update
       onClose();
       return;
     }
@@ -55,59 +75,50 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
     onClose();
   };
 
-  /* ADD NEW ADDRESS */
-  const addNewAddress = async () => {
+  /* ================= SAVE (ADD / EDIT) ================= */
+  const saveAddress = async () => {
     const { fullName, phone, addressLine, city, state, pincode } = form;
 
     if (!fullName || !phone || !addressLine || !city || !state || !pincode) {
       return alert("Fill all address fields");
     }
 
-    const res = await api.post("/addresses", form);
+    if (isEdit) {
+      await api.put(`/addresses/${address._id}`, form);
+    } else {
+      await api.post("/addresses", form);
+    }
 
-    setShowForm(false);
-    setForm({
-      fullName: "",
-      phone: "",
-      addressLine: "",
-      city: "",
-      state: "",
-      pincode: "",
-    });
-
-    await loadAddresses();
-    setSelected(res.data._id);
+    onUpdated?.();
+    onClose();
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50
-      flex items-center justify-center px-4
-      bg-black/70 backdrop-blur-sm"
-    >
-      <div
-        className="w-full max-w-lg rounded-3xl p-6
-        bg-black/70 backdrop-blur-xl
-        border border-white/10 shadow-2xl text-white"
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-3xl p-6 bg-black/70 backdrop-blur-xl border border-white/10 shadow-2xl text-white">
+
+        {/* ================= HEADER ================= */}
         <h2 className="text-2xl font-extrabold mb-6">
-          Select Delivery Address
+          {isEdit
+            ? "Edit Address"
+            : showForm
+            ? "Add New Address"
+            : "Select Delivery Address"}
         </h2>
 
-        {/* ADDRESS LIST */}
-        {!showForm && (
+        {/* ================= ADDRESS LIST ================= */}
+        {!showForm && !isEdit && (
           <>
             <div className="space-y-3 max-h-64 overflow-auto pr-1">
               {addresses.map((a) => (
                 <label
                   key={a._id}
-                  className={`flex gap-3 p-4 rounded-2xl cursor-pointer
-                  border transition
-                  ${
-                    selected === a._id
-                      ? "border-indigo-500 bg-indigo-500/10"
-                      : "border-white/10 bg-white/5 hover:bg-white/10"
-                  }`}
+                  className={`flex gap-3 p-4 rounded-2xl cursor-pointer border transition
+                    ${
+                      selected === a._id
+                        ? "border-indigo-500 bg-indigo-500/10"
+                        : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
                 >
                   <input
                     type="radio"
@@ -120,80 +131,74 @@ export default function AddressModal({ orderId, onClose, onUpdated }: Props) {
                     <p className="text-sm text-slate-400">
                       {a.addressLine}, {a.city}, {a.state} – {a.pincode}
                     </p>
-                    <p className="text-sm text-slate-300 mt-1">📞 {a.phone}</p>
+                    <p className="text-sm text-slate-300 mt-1">
+                      📞 {a.phone}
+                    </p>
                   </div>
                 </label>
               ))}
             </div>
 
-            {/* ACTIONS */}
-            <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mt-8">
+            <div className="flex justify-between mt-8">
               <button
                 onClick={() => setShowForm(true)}
-                className="cursor-pointer text-indigo-400 font-semibold hover:underline"
+                className="text-indigo-400 font-semibold hover:underline"
               >
                 + Add New Address
               </button>
 
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={onClose}
-                  className="px-5 py-2 rounded-xl
-                  cursor-pointer
-                  border border-white/20 text-slate-300
-                  hover:bg-white/5 transition"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={updateOrderAddress}
-                  className="px-5 py-2 rounded-xl
-                  cursor-pointer font-semibold
-                  bg-linear-to-r from-indigo-500 to-purple-600
-                  text-white shadow-lg hover:opacity-90 transition"
-                >
-                  {orderId ? "Use This Address" : "Save Address"}
-                </button>
-              </div>
+              <button
+                onClick={updateOrderAddress}
+                className="px-6 py-2 rounded-xl font-semibold
+                bg-linear-to-r from-indigo-500 to-purple-600"
+              >
+                Use This Address
+              </button>
             </div>
           </>
         )}
 
-        {/* ADD ADDRESS FORM */}
-        {showForm && (
+        {/* ================= ADD / EDIT FORM ================= */}
+        {(showForm || isEdit) && (
           <>
-            <div className="grid grid-cols-1 gap-3">
-              {Object.keys(form).map((key) => (
-                <input
-                  key={key}
-                  placeholder={key.replace(/([A-Z])/g, " $1")}
-                  className="rounded-xl px-4 py-2
-                  bg-black/40 border border-white/10
-                  text-white placeholder-slate-500
-                  focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={(form as any)[key]}
-                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                />
+            <div className="space-y-4">
+              {[
+                ["fullName", "Full Name"],
+                ["phone", "Mobile Number"],
+                ["addressLine", "Address"],
+                ["city", "City"],
+                ["state", "State"],
+                ["pincode", "Pincode"],
+              ].map(([key, label]) => (
+                <div key={key}>
+                  <label className="text-sm text-slate-400">{label}</label>
+                  <input
+                    value={(form as any)[key]}
+                    onChange={(e) =>
+                      setForm({ ...form, [key]: e.target.value })
+                    }
+                    className="mt-1 w-full rounded-xl px-4 py-3
+                    bg-black/40 border border-white/10
+                    focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
               ))}
             </div>
 
-            <div className="flex justify-between items-center mt-8">
+            <div className="flex justify-between mt-8">
               <button
-                onClick={() => setShowForm(false)}
-                className="cursor-pointer text-slate-400 hover:text-white transition"
+                onClick={onClose}
+                className="text-slate-400 hover:text-white"
               >
-                ← Back
+                Cancel
               </button>
 
               <button
-                onClick={addNewAddress}
-                className="px-6 py-2 rounded-xl
-                cursor-pointer font-semibold
-                bg-linear-to-r from-emerald-500 to-teal-600
-                text-white shadow-lg hover:opacity-90 transition"
+                onClick={saveAddress}
+                className="px-8 py-3 rounded-xl font-semibold
+                bg-linear-to-r from-indigo-500 to-purple-600"
               >
-                Save Address
+                {isEdit ? "Update Address" : "Save Address"}
               </button>
             </div>
           </>
