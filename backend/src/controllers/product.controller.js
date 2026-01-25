@@ -189,35 +189,79 @@ export const customersAlsoBought = async (req, res) => {
 };
 
 export const recommendedForUser = async (req, res) => {
-  const userId = req.user._id;
+  try {
+    /* ================= GUEST USER ================= */
+    if (!req.user || !req.user._id) {
+      const trending = await Product.find({ isActive: true })
+        .sort({ soldCount: -1, createdAt: -1 })
+        .limit(8);
 
-  // 1️⃣ User orders
-  const orders = await Order.find({ user: userId });
+      return res.json(trending);
+    }
 
-  const productIds = new Set();
-  const categories = new Set();
+    /* ================= LOGGED-IN USER ================= */
+    const userId = req.user._id;
 
-  orders.forEach((order) => {
-    order.items.forEach((item) => {
-      productIds.add(item.product.toString());
+    // 1️⃣ Fetch user orders
+    const orders = await Order.find({ user: userId }).populate(
+      "items.product"
+    );
+
+    // 🛑 If no orders → fallback
+    if (!orders.length) {
+      const fallback = await Product.find({ isActive: true })
+        .sort({ createdAt: -1 })
+        .limit(8);
+
+      return res.json(fallback);
+    }
+
+    const purchasedProductIds = new Set();
+    const categories = new Set();
+
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        if (item.product) {
+          purchasedProductIds.add(item.product._id.toString());
+          categories.add(item.product.category);
+        }
+      });
     });
-  });
 
-  const products = await Product.find({
-    _id: { $in: [...productIds] },
-  }).select("category");
+    // 🛑 Safety: no categories found
+    if (!categories.size) {
+      const fallback = await Product.find({ isActive: true })
+        .sort({ createdAt: -1 })
+        .limit(8);
 
-  products.forEach((p) => categories.add(p.category));
+      return res.json(fallback);
+    }
 
-  // 2️⃣ Recommend similar category products
-  const recommendations = await Product.find({
-    category: { $in: [...categories] },
-    _id: { $nin: [...productIds] },
-  })
-    .limit(8)
-    .sort({ createdAt: -1 });
+    // 2️⃣ Recommend similar category products
+    const recommendations = await Product.find({
+      isActive: true,
+      category: { $in: [...categories] },
+      _id: { $nin: [...purchasedProductIds] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(8);
 
-  res.json(recommendations);
+    // 🛑 If still empty → fallback
+    if (!recommendations.length) {
+      const fallback = await Product.find({ isActive: true })
+        .sort({ createdAt: -1 })
+        .limit(8);
+
+      return res.json(fallback);
+    }
+
+    res.json(recommendations);
+  } catch (error) {
+    console.error("Recommended products error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to load recommendations" });
+  }
 };
 
 export const recommendedForYou = async (req, res) => {
@@ -234,6 +278,19 @@ export const recommendedForYou = async (req, res) => {
       .sort({ numReviews: -1 })
       .limit(8);
   }
+
+  res.json(products);
+};
+
+export const getProductsByCategory = async (req, res) => {
+  const category = req.query.category?.toLowerCase(); // 🔥 FIX
+
+  if (!category) {
+    return res.status(400).json({ message: "Category required" });
+  }
+
+  const products = await Product.find({ category })
+    .sort({ createdAt: -1 });
 
   res.json(products);
 };

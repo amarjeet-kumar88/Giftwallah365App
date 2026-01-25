@@ -4,8 +4,10 @@ import razorpay from "../config/razorpay.js";
 import { generateInvoicePdf } from "../utils/invoicePdf.js";
 import { sendInvoiceEmail } from "../utils/sendEmail.js";
 import crypto from "crypto";
+import { createNotification } from "./notification.controller.js";
+// import { sendWhatsApp } from "../services/whatsapp.service.js"; // if exists
 
-
+/* ================= CREATE ORDER ================= */
 export const createOrder = async (req, res) => {
   const userId = req.user._id;
   const { addressId } = req.body || {};
@@ -30,14 +32,14 @@ export const createOrder = async (req, res) => {
     0
   );
 
-  // 🔥 CREATE RAZORPAY ORDER
+  /* 🔥 CREATE RAZORPAY ORDER */
   const razorpayOrder = await razorpay.orders.create({
-    amount: totalAmount * 100, // paise
+    amount: totalAmount * 100,
     currency: "INR",
     receipt: `rcpt_${Date.now()}`,
   });
 
-  // 🔥 SAVE ORDER IN DB (PENDING)
+  /* 🔥 SAVE ORDER */
   const order = await Order.create({
     user: userId,
     items,
@@ -47,13 +49,22 @@ export const createOrder = async (req, res) => {
     status: "PENDING",
   });
 
+  /* 🔔 NOTIFICATION */
+  await createNotification({
+    user: userId,
+    title: "Order created",
+    message: "Your order has been created. Please complete payment.",
+    type: "ORDER",
+    url: `/orders/${order._id}`,
+  });
+
   res.status(201).json({
     order,
-    razorpayOrder, // 🔥 THIS WAS MISSING
+    razorpayOrder,
   });
 };
 
-
+/* ================= VERIFY PAYMENT ================= */
 export const verifyPayment = async (req, res) => {
   const {
     razorpay_order_id,
@@ -61,7 +72,6 @@ export const verifyPayment = async (req, res) => {
     razorpay_signature,
   } = req.body;
 
-  /* 1️⃣ VERIFY SIGNATURE */
   const body = razorpay_order_id + "|" + razorpay_payment_id;
 
   const expectedSignature = crypto
@@ -73,7 +83,6 @@ export const verifyPayment = async (req, res) => {
     return res.status(400).json({ message: "Payment verification failed" });
   }
 
-  /* 2️⃣ FIND ORDER (CORRECT FIELD) */
   const order = await Order.findOne({
     razorpayOrderId: razorpay_order_id,
   });
@@ -82,24 +91,28 @@ export const verifyPayment = async (req, res) => {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  /* 3️⃣ UPDATE ORDER */
   order.status = "PAID";
   order.paymentId = razorpay_payment_id;
   await order.save();
 
-  /* 4️⃣ CLEAR CART */
+  /* 🔔 NOTIFICATION */
+  await createNotification({
+    user: order.user,
+    title: "Payment successful",
+    message: "Your payment was successful. Order confirmed.",
+    type: "ORDER",
+    url: `/orders/${order._id}`,
+  });
+
   await Cart.deleteOne({ user: order.user });
 
-  /* 5️⃣ POPULATE FOR INVOICE */
   const populatedOrder = await Order.findById(order._id)
     .populate("items.product")
     .populate("address")
     .populate("user");
 
-  /* 6️⃣ GENERATE INVOICE */
   const pdfBuffer = await generateInvoicePdf(populatedOrder);
 
-  /* 7️⃣ SEND EMAIL */
   await sendInvoiceEmail({
     to: populatedOrder.user.email || "test@example.com",
     subject: "Your GiftWallah Invoice",
@@ -107,15 +120,13 @@ export const verifyPayment = async (req, res) => {
     pdfBuffer,
   });
 
-  /* 8️⃣ RESPONSE */
   res.json({
     success: true,
     order: populatedOrder,
   });
 };
 
-
-
+/* ================= MY ORDERS ================= */
 export const getMyOrders = async (req, res) => {
   const orders = await Order.find({ user: req.user._id })
     .populate("items.product")
@@ -125,10 +136,11 @@ export const getMyOrders = async (req, res) => {
   res.json(orders);
 };
 
+/* ================= DOWNLOAD INVOICE ================= */
 export const downloadInvoice = async (req, res) => {
   const order = await Order.findById(req.params.id)
     .populate("items.product")
-    .populate("address")     // 🔥 MUST
+    .populate("address")
     .populate("user");
 
   if (!order) {
@@ -137,7 +149,7 @@ export const downloadInvoice = async (req, res) => {
 
   if (["CANCELLED", "FAILED"].includes(order.status)) {
     return res.status(400).json({
-      message: "Invoice not available for cancelled orders",
+      message: "Invoice not available for cancelled/failed orders",
     });
   }
 
@@ -152,6 +164,7 @@ export const downloadInvoice = async (req, res) => {
   res.send(pdfBuffer);
 };
 
+/* ================= CANCEL ORDER ================= */
 export const cancelOrder = async (req, res) => {
   const order = await Order.findById(req.params.id);
 
@@ -159,88 +172,46 @@ export const cancelOrder = async (req, res) => {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  // 🔐 Ensure same user
   if (order.user.toString() !== req.user._id.toString()) {
     return res.status(403).json({ message: "Not authorized" });
   }
 
-  // ❌ Already cancelled
-  if (order.status === "CANCELLED") {
-    return res.status(400).json({ message: "Order already cancelled" });
-  }
-
-  // 🚫 Cancellation rules (Flipkart style)
   const cancellableStatuses = ["PENDING", "PAID", "PROCESSING"];
-
   if (!cancellableStatuses.includes(order.status)) {
     return res.status(400).json({
       message: `Order cannot be cancelled after ${order.status}`,
     });
   }
 
-  // ✅ Cancel order
   order.status = "CANCELLED";
-  order.cancelReason = req.body.reason;
+  order.cancelReason = req.body.reason || "User cancelled";
   order.cancelComment = req.body.comment || "";
   order.cancelledAt = new Date();
-
   await order.save();
 
-  if (order.user?.phone) {
-    await sendWhatsApp(
-      order.user.phone,
-      `❌ GiftWallah Order Cancelled
-Your order #${order._id.toString().slice(-6)} has been cancelled.`
-    );
-  }
+  /* 🔔 NOTIFICATION */
+  await createNotification({
+    user: order.user,
+    title: "Order cancelled",
+    message: "Your order has been cancelled successfully.",
+    type: "ORDER",
+    url: `/orders/${order._id}`,
+  });
 
   res.json(order);
 };
-//   const { reason } = req.body;
 
-//   const order = await Order.findById(req.params.id).populate("user");
-
-//   if (!order) {
-//     return res.status(404).json({ message: "Order not found" });
-//   }
-
-//   if (!["PENDING", "PAID", "PROCESSING"].includes(order.status)) {
-//     return res
-//       .status(400)
-//       .json({ message: "Order cannot be cancelled now" });
-//   }
-
-//   order.status = "CANCELLED";
-//   order.cancelReason = reason || "User cancelled";
-//   await order.save();
-
-//   // WhatsApp notify
-//   if (order.user?.phone) {
-//     await sendWhatsApp(
-//       order.user.phone,
-//       `❌ GiftWallah Order Cancelled
-// Your order #${order._id.toString().slice(-6)} has been cancelled.`
-//     );
-//   }
-
-//   res.json(order);
-// };
-
+/* ================= UPDATE ORDER ADDRESS ================= */
 export const updateOrderAddress = async (req, res) => {
   const { id } = req.params;
   const { addressId } = req.body;
 
-  // ✅ SAFETY CHECK
   if (!id || id === "undefined") {
-    return res.status(400).json({
-      message: "Order ID is required",
-    });
+    return res.status(400).json({ message: "Order ID is required" });
   }
 
   if (!addressId) {
-    return res.status(400).json({
-      message: "Address ID is required",
-    });
+    return res.status(400).json({ message: "Address ID is required" });
   }
 
   const order = await Order.findById(id);
@@ -251,11 +222,19 @@ export const updateOrderAddress = async (req, res) => {
   order.address = addressId;
   await order.save();
 
+  await createNotification({
+    user: order.user,
+    title: "Address updated",
+    message: "Delivery address updated for your order.",
+    type: "ORDER",
+    url: `/orders/${order._id}`,
+  });
+
   const populatedOrder = await order.populate("address");
   res.json(populatedOrder);
 };
 
-
+/* ================= RETRY PAYMENT ================= */
 export const retryOrderPayment = async (req, res) => {
   const order = await Order.findById(req.params.id);
 
@@ -270,7 +249,16 @@ export const retryOrderPayment = async (req, res) => {
   });
 
   order.razorpayOrderId = razorpayOrder.id;
+  order.status = "PENDING";
   await order.save();
+
+  await createNotification({
+    user: order.user,
+    title: "Retry payment",
+    message: "Please retry payment to complete your order.",
+    type: "ORDER",
+    url: `/orders/${order._id}`,
+  });
 
   res.json({ razorpayOrder });
 };

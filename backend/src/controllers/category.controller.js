@@ -17,3 +17,16 @@ export const getCategories = async (req, res) => {
   const categories = await Category.find({ isActive: true });
   res.json(categories);
 };
+
+export const getCategoryBySlug = async (req, res) => {
+  const slug = req.params.slug.toLowerCase(); // 🔥 FIX
+
+  const category = await Category.findOne({ slug });
+
+  if (!category) {
+    return res.status(404).json({ message: "Category not found" });
+  }
+
+  res.json(category);
+};
+

@@ -7,6 +7,8 @@ import { useCartStore } from "@/store/cart.store";
 import { useEffect, useRef, useState } from "react";
 import SearchBar from "@/components/search/SearchBar";
 import { AnimatePresence, motion } from "framer-motion";
+import NotificationBell from "../notification/NotificationBell";
+import NotificationPanel from "../notification/NotificationPanel";
 
 const NAVBAR_HEIGHT = 56; // h-14 = 56px
 
@@ -92,6 +94,11 @@ export default function MobileNavbar({
                 </span>
               )}
             </button>
+
+            <div className="relative">
+              <NotificationBell />
+              <NotificationPanel />
+            </div>
 
             {/* ☰ MENU */}
             <button onClick={onMenuOpen} className="cursor-pointer">

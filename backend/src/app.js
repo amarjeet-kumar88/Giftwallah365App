@@ -11,12 +11,18 @@ import addressRoutes from "./routes/address.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true, // 🔥 MUST
+  })
+);
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
@@ -29,6 +35,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 
 app.get("/", (req, res) => {

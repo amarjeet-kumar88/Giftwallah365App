@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { motion, AnimatePresence } from "framer-motion";
+import NotificationBell from "../notification/NotificationBell";
+import NotificationPanel from "../notification/NotificationPanel";
 
 /* ================= ANIMATIONS ================= */
 

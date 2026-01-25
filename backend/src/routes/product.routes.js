@@ -11,6 +11,7 @@ import {
   getRelatedProducts,
   customersAlsoBought,
   recommendedForUser,
+  getProductsByCategory,
 } from "../controllers/product.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 import { isAdmin } from "../middlewares/admin.middleware.js";
@@ -37,11 +38,11 @@ router.get("/:id/related", getRelatedProducts);
 router.get("/:id/also-bought", customersAlsoBought);
 router.get(
   "/recommended",
-  protect,
   recommendedForUser
 );
 router.delete("/:id", protect, isAdmin, deleteProduct);
 router.get("/:id", getSingleProduct);
+router.get("/", getProductsByCategory);
 
 
 export default router;
